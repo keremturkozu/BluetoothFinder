@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct BluetoothDeviceFinderApp: App {
+    @StateObject private var deviceManager = DeviceManager()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(deviceManager)
         }
     }
 }

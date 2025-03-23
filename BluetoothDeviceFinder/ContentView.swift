@@ -8,14 +8,21 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var deviceManager = DeviceManager()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            DeviceListView()
+                .tabItem {
+                    Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
+                }
+            
+            DeviceMapView()
+                .tabItem {
+                    Label("Map", systemImage: "map")
+                }
         }
-        .padding()
+        .environmentObject(deviceManager)
     }
 }
 

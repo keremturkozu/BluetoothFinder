@@ -10,9 +10,22 @@
 		172BC2EF2D8F268C007F8581 /* BluetoothDeviceFinder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BluetoothDeviceFinder.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		172BC3212D8F73C8007F8581 /* Exceptions for "BluetoothDeviceFinder" folder in "BluetoothDeviceFinder" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 172BC2EE2D8F268C007F8581 /* BluetoothDeviceFinder */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		172BC2F12D8F268C007F8581 /* BluetoothDeviceFinder */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				172BC3212D8F73C8007F8581 /* Exceptions for "BluetoothDeviceFinder" folder in "BluetoothDeviceFinder" target */,
+			);
 			path = BluetoothDeviceFinder;
 			sourceTree = "<group>";
 		};
@@ -255,6 +268,11 @@
 				DEVELOPMENT_TEAM = PZ22MVLYZ5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BluetoothDeviceFinder/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bu uygulama, yakındaki Bluetooth cihazlarını taramak ve bağlanmak için Bluetooth kullanır.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bu uygulama, yakındaki Bluetooth cihazlarını taramak ve bağlanmak için Bluetooth kullanır.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Cihazlarınızın en son görüldüğü konumu belirlemek ve onları bulmanıza yardımcı olmak için konum bilginiz kullanılır.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Cihazlarınızın en son görüldüğü konumu belirlemek ve onları bulmanıza yardımcı olmak için konum bilginiz kullanılır.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +302,11 @@
 				DEVELOPMENT_TEAM = PZ22MVLYZ5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BluetoothDeviceFinder/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bu uygulama, yakındaki Bluetooth cihazlarını taramak ve bağlanmak için Bluetooth kullanır.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "Bu uygulama, yakındaki Bluetooth cihazlarını taramak ve bağlanmak için Bluetooth kullanır.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Cihazlarınızın en son görüldüğü konumu belirlemek ve onları bulmanıza yardımcı olmak için konum bilginiz kullanılır.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "Cihazlarınızın en son görüldüğü konumu belirlemek ve onları bulmanıza yardımcı olmak için konum bilginiz kullanılır.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

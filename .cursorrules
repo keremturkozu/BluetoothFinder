@@ -1,0 +1,15 @@
+@SwiftUI @Swift @Apple Design Tips 
+Merhaba, Bluetooth lost device app yapacağım. 
+MVVM Mimarisini ve Core and Features yapısını kullanarak. Yapalım. 
+* CoreBluetooth -> Bluetooth cihazları bulmak için
+* CoreLocation -> Cihazın en son nerede görüldüğünü belirlemek için
+* UserNotifications -> Kullanıcıya bildirimler göndermek için
+* MapKit -> Kaybolan cihazları harita üzerinden göstermek için
+* SwiftUI -> UI için (hızlı geliştirme açısından mantıklı)
+
+Location of lost device screen 
+radar veya başka bir şey kulanarak en yakın device bulma konumu vs. 
+device listesi 
+cihazların pil durumu 
+
+gibi özellikler olacak. fakat ilk olarak bluetooth tarama ve konum kaydetme olarak başlayalım. 
