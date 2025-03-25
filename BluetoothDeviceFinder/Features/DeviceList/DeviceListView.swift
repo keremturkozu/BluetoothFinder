@@ -3,7 +3,6 @@ import SwiftUI
 struct DeviceListView: View {
     @EnvironmentObject private var deviceManager: DeviceManager
     @StateObject private var viewModel = DeviceListViewModel()
-    @State private var selectedDevice: Device?
     
     var body: some View {
         NavigationView {
@@ -13,22 +12,33 @@ struct DeviceListView: View {
                 } else {
                     deviceListView
                 }
-            }
-            .navigationTitle("Device Finder")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                
+                VStack {
+                    Spacer()
+                    
                     scanButton
+                        .padding(.bottom)
                 }
             }
-            .alert(item: errorBinding) { errorWrapper in
-                Alert(
-                    title: Text("Error"),
-                    message: Text(errorWrapper.message),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
-            .sheet(item: $selectedDevice) { device in
-                DeviceDetailView(device: device)
+            .navigationTitle("Devices")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: viewModel.sortByName) {
+                            Label("Sort by Name", systemImage: "textformat.size")
+                        }
+                        
+                        Button(action: viewModel.sortBySignalStrength) {
+                            Label("Sort by Signal", systemImage: "antenna.radiowaves.left.and.right")
+                        }
+                        
+                        Button(action: viewModel.sortByLastSeen) {
+                            Label("Sort by Last Seen", systemImage: "clock")
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                }
             }
             .onAppear {
                 viewModel.injectDeviceManager(deviceManager)
@@ -37,135 +47,352 @@ struct DeviceListView: View {
     }
     
     // MARK: - Helper Views
-    private var scanButton: some View {
-        Button(action: {
-            viewModel.toggleScanning()
-        }) {
-            HStack {
-                Text(viewModel.isScanning ? "Stop" : "Scan")
-                Image(systemName: viewModel.isScanning ? "stop.circle" : "antenna.radiowaves.left.and.right")
-            }
-        }
-    }
-    
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.system(size: 72))
-                .foregroundColor(.gray)
-            Text(viewModel.isScanning ? "Scanning for devices..." : "No devices found")
-                .font(.headline)
-            Text(viewModel.isScanning ? "Nearby Bluetooth devices will appear here" : "Tap Scan to start looking for devices")
+        VStack(spacing: 20) {
+            // Bluetooth scanning animation
+            ZStack {
+                // Outer circle (pulse effect when scanning)
+                Circle()
+                    .stroke(Color.blue.opacity(0.3), lineWidth: viewModel.isScanning ? 8 : 0)
+                    .frame(width: 180, height: 180)
+                    .scaleEffect(viewModel.isScanning ? 1.2 : 1.0)
+                    .opacity(viewModel.isScanning ? 0.6 : 0)
+                    .animation(viewModel.isScanning ? 
+                        Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true) : .default, 
+                        value: viewModel.isScanning)
+                
+                // Middle circle
+                Circle()
+                    .stroke(Color.blue.opacity(0.5), lineWidth: 6)
+                    .frame(width: 120, height: 120)
+                    .scaleEffect(viewModel.isScanning ? 1.1 : 1.0)
+                    .opacity(viewModel.isScanning ? 0.8 : 0.5)
+                    .animation(viewModel.isScanning ? 
+                        Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true) : .default, 
+                        value: viewModel.isScanning)
+                
+                // Inner circle with bluetooth icon
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 80, height: 80)
+                    .overlay(
+                        Image(systemName: "bluetooth")
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                    .shadow(color: Color.blue.opacity(0.5), radius: 10, x: 0, y: 5)
+            }
+            .padding(.bottom, 20)
+            
+            Text(viewModel.isScanning ? "Scanning for Devices..." : "No Devices Found")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text(viewModel.isScanning ? 
+                "Looking for nearby Bluetooth devices" : 
+                "Start scanning to find nearby devices")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 10)
             
-            if viewModel.isScanning {
-                ProgressView()
-                    .padding()
+            if !viewModel.isScanning {
+                Button(action: {
+                    viewModel.startScanning()
+                }) {
+                    HStack {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                        Text("Start Scan")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .cornerRadius(25)
+                    .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                }
+                .padding(.top, 10)
             }
         }
     }
     
     private var deviceListView: some View {
         List {
-            Section {
-                ForEach(viewModel.devices) { device in
-                    DeviceListItemView(device: device)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedDevice = device
-                        }
+            if viewModel.isScanning {
+                HStack {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                    
+                    Text("Scanning for devices...")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 10)
+                    
+                    Spacer()
                 }
-            } header: {
-                if viewModel.isScanning {
-                    HStack {
-                        Text("Scanning...")
-                        Spacer()
-                        ProgressView()
-                    }
-                } else {
-                    Text("Found Devices")
-                }
+                .listRowBackground(Color(.systemGray6))
+                .listRowSeparator(.hidden)
+                .padding(.vertical, 8)
             }
+            
+            ForEach(viewModel.devices) { device in
+                DeviceRowView(device: device)
+                    .onTapGesture {
+                        viewModel.selectDevice(device)
+                    }
+                    .contextMenu {
+                        Button(action: { viewModel.toggleConnection(for: device) }) {
+                            Label(
+                                device.isConnected ? "Disconnect" : "Connect",
+                                systemImage: device.isConnected ? "link.slash" : "link"
+                            )
+                        }
+                        
+                        Button(action: { viewModel.toggleSaveDevice(device) }) {
+                            Label(
+                                device.isSaved ? "Remove Favorite" : "Add to Favorites",
+                                systemImage: device.isSaved ? "heart.slash" : "heart"
+                            )
+                        }
+                        
+                        Button(action: { viewModel.forgetDevice(device) }) {
+                            Label("Forget Device", systemImage: "trash")
+                        }
+                    }
+            }
+            .onDelete(perform: viewModel.deleteDevices)
         }
         .listStyle(InsetGroupedListStyle())
+        .refreshable {
+            viewModel.refreshDevices()
+        }
+        .sheet(item: $viewModel.selectedDevice) { device in
+            DeviceDetailView(device: device)
+        }
     }
     
-    // MARK: - Bindings
-    private var errorBinding: Binding<ErrorWrapper?> {
-        Binding<ErrorWrapper?>(
-            get: {
-                guard let errorMessage = viewModel.errorMessage else { return nil }
-                return ErrorWrapper(id: UUID(), message: errorMessage)
-            },
-            set: { _ in
-                viewModel.errorMessage = nil
+    private var scanButton: some View {
+        Button(action: {
+            viewModel.isScanning ? viewModel.stopScanning() : viewModel.startScanning()
+        }) {
+            HStack {
+                // Rotate animation for the icon when scanning
+                Image(systemName: viewModel.isScanning ? "stop.circle.fill" : "antenna.radiowaves.left.and.right")
+                    .rotationEffect(viewModel.isScanning ? .degrees(0) : .degrees(0))
+                    .animation(
+                        viewModel.isScanning ?
+                            Animation.linear(duration: 2).repeatForever(autoreverses: false) : .default,
+                        value: viewModel.isScanning
+                    )
+                
+                Text(viewModel.isScanning ? "Stop Scanning" : "Scan for Devices")
             }
-        )
-    }
-    
-    // MARK: - Helper Types
-    struct ErrorWrapper: Identifiable {
-        let id: UUID
-        let message: String
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(
+                RoundedRectangle(cornerRadius: 25)
+                    .fill(viewModel.isScanning ? Color.red : Color.blue)
+                    .shadow(color: (viewModel.isScanning ? Color.red : Color.blue).opacity(0.4), radius: 8, x: 0, y: 4)
+            )
+            .padding(.horizontal, 30)
+        }
+        .padding(.bottom, 20)
     }
 }
 
-struct DeviceListItemView: View {
+struct DeviceRowView: View {
     let device: Device
     
     var body: some View {
-        HStack {
+        HStack(spacing: 16) {
+            // Device image with background
+            ZStack {
+                // Background circle with gradient based on signal strength
+                Circle()
+                    .fill(signalGradient)
+                    .frame(width: 56, height: 56)
+                    .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+                
+                // Device icon
+                Image(systemName: deviceTypeIcon)
+                    .font(.system(size: 24))
+                    .foregroundColor(.white)
+            }
+            .frame(width: 56, height: 56)
+            
+            // Device info
             VStack(alignment: .leading, spacing: 4) {
+                // Device name
                 Text(device.name)
                     .font(.headline)
+                    .foregroundColor(.primary)
                 
-                HStack {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .foregroundColor(signalColor)
-                    
-                    Text(device.distanceDescription ?? "Unknown")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    if let batteryLevel = device.batteryLevel {
-                        Spacer()
+                // Signal and battery info
+                HStack(spacing: 12) {
+                    // Distance indicator
+                    HStack(spacing: 4) {
+                        Image(systemName: distanceIcon)
+                            .font(.system(size: 12))
+                            .foregroundColor(signalColor)
                         
-                        HStack(spacing: 2) {
+                        Text(formatDistance(for: device))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Battery if available
+                    if let battery = device.batteryLevel {
+                        HStack(spacing: 4) {
                             Image(systemName: batteryIcon)
+                                .font(.system(size: 12))
                                 .foregroundColor(batteryColor)
-                            Text("\(batteryLevel)%")
-                                .font(.subheadline)
+                            
+                            Text("\(battery)%")
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
-                }
-                
-                if let location = device.location {
-                    Text("Last seen: \(formatDate(device.lastSeen))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    
+                    // Connected status
+                    if device.isConnected {
+                        Text("Connected")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.2))
+                            .foregroundColor(.green)
+                            .cornerRadius(4)
+                    }
                 }
             }
             
             Spacer()
             
+            // Signal strength indicator
+            signalStrengthIndicator
+                .padding(.trailing, 8)
+            
+            // Chevron
             Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
-                .font(.system(size: 14))
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+    
+    // MARK: - UI Components
+    
+    private var signalStrengthIndicator: some View {
+        VStack(spacing: 1) {
+            ForEach(0..<4) { i in
+                RoundedRectangle(cornerRadius: 1)
+                    .frame(width: 3 + CGFloat(i), height: 6 + CGFloat(i * 2))
+                    .foregroundColor(signalStrengthColor(for: i))
+            }
         }
     }
     
-    // MARK: - Helper Methods
+    // MARK: - Helper Properties
+    
+    private var distanceIcon: String {
+        guard let rssi = device.rssi else { return "location.slash" }
+        
+        if rssi > -50 {
+            return "location.fill"
+        } else if rssi > -65 {
+            return "location"
+        } else if rssi > -80 {
+            return "location"
+        } else {
+            return "location.slash"
+        }
+    }
+    
+    private var signalGradient: LinearGradient {
+        guard let rssi = device.rssi else {
+            return LinearGradient(
+                gradient: Gradient(colors: [Color.gray.opacity(0.7), Color.gray.opacity(0.9)]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        
+        if rssi > -50 {
+            return LinearGradient(
+                gradient: Gradient(colors: [Color.green.opacity(0.7), Color.green]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else if rssi > -65 {
+            return LinearGradient(
+                gradient: Gradient(colors: [Color.blue.opacity(0.7), Color.blue]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else if rssi > -80 {
+            return LinearGradient(
+                gradient: Gradient(colors: [Color.orange.opacity(0.7), Color.orange]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            return LinearGradient(
+                gradient: Gradient(colors: [Color.red.opacity(0.7), Color.red]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+    
+    private func signalStrengthColor(for bar: Int) -> Color {
+        guard let rssi = device.rssi else { return Color.gray.opacity(0.3) }
+        
+        let signalStrength = calculateSignalStrength(rssi: rssi)
+        
+        // Determine if this bar should be colored based on signal strength
+        let threshold = Double(bar) / 3.0
+        
+        if signalStrength >= threshold {
+            return signalColor
+        } else {
+            return Color.gray.opacity(0.3)
+        }
+    }
+    
+    private func calculateSignalStrength(rssi: Int) -> Double {
+        // Convert RSSI to a percentage (0-1)
+        // -30 is excellent (100%), -90 is poor (0%)
+        let rssiRange: Double = 60.0
+        let adjustedRSSI = Double(min(max(-90, rssi), -30))
+        return (adjustedRSSI + 90) / rssiRange
+    }
+    
+    // MARK: - Helper Properties & Methods
+    
+    private var batteryColor: Color {
+        guard let battery = device.batteryLevel else { return .gray }
+        
+        if battery > 75 {
+            return .green
+        } else if battery > 30 {
+            return .yellow
+        } else {
+            return .red
+        }
+    }
+    
     private var signalColor: Color {
         guard let rssi = device.rssi else { return .gray }
         
         if rssi > -50 {
             return .green
         } else if rssi > -65 {
-            return .yellow
+            return .blue
         } else if rssi > -80 {
             return .orange
         } else {
@@ -173,39 +400,67 @@ struct DeviceListItemView: View {
         }
     }
     
+    private var deviceTypeIcon: String {
+        switch device.type {
+        case .headphones:
+            return "headphones"
+        case .speaker:
+            return "hifispeaker"
+        case .watch:
+            return "applewatch"
+        case .keyboard:
+            return "keyboard"
+        case .mouse:
+            return "mouse"
+        case .phone:
+            return "iphone"
+        case .tablet:
+            return "ipad"
+        case .laptop:
+            return "laptopcomputer"
+        case .computer:
+            return "desktopcomputer"
+        case .unknown:
+            return "questionmark.circle"
+        }
+    }
+    
     private var batteryIcon: String {
-        guard let batteryLevel = device.batteryLevel else { return "battery.0" }
+        guard let battery = device.batteryLevel else { return "battery.0" }
         
-        if batteryLevel > 75 {
+        if battery > 75 {
             return "battery.100"
-        } else if batteryLevel > 50 {
+        } else if battery > 50 {
             return "battery.75"
-        } else if batteryLevel > 25 {
+        } else if battery > 25 {
             return "battery.50"
         } else {
             return "battery.25"
         }
     }
     
-    private var batteryColor: Color {
-        guard let batteryLevel = device.batteryLevel else { return .gray }
+    // Distance calculation and formatting based on RSSI
+    private func formatDistance(for device: Device) -> String {
+        guard let rssi = device.rssi else { return "Unknown" }
         
-        if batteryLevel > 50 {
-            return .green
-        } else if batteryLevel > 25 {
-            return .yellow
+        // Using a simple path loss model to estimate distance
+        let txPower = -59 // Calibrated at 1 meter
+        let n = 2.5 // Path loss exponent (environment dependent)
+        
+        // Calculate approximate distance in meters
+        let distance = pow(10, (Double(txPower - rssi) / (10 * n)))
+        
+        if distance < 1 {
+            return String(format: "%.1f m away", distance)
+        } else if distance < 10 {
+            return String(format: "%.1f m away", distance)
         } else {
-            return .red
+            return "\(Int(distance)) m away"
         }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
 #Preview {
     DeviceListView()
+        .environmentObject(DeviceManager())
 } 
