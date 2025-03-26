@@ -15,6 +15,9 @@ struct BluetoothDeviceFinderApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(deviceManager)
+                .onAppear {
+                    deviceManager.locationService.requestAuthorization()
+                }
         }
     }
 }

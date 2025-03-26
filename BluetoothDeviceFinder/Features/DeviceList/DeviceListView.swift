@@ -4,6 +4,11 @@ struct DeviceListView: View {
     @EnvironmentObject private var deviceManager: DeviceManager
     @StateObject private var viewModel = DeviceListViewModel()
     
+    // Timer ekleyerek sürekli mesafe güncellemesi sağlayalım
+    @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var updateCounter: Int = 0
+    @State private var showSortOptions: Bool = false
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -14,6 +19,42 @@ struct DeviceListView: View {
                 }
                 
                 VStack {
+                    if deviceManager.errorMessage != nil {
+                        // Error message banner
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.yellow)
+                            
+                            Text(deviceManager.errorMessage ?? "")
+                                .font(.subheadline)
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                // Yetki hatası için ayarlara yönlendir
+                                if deviceManager.errorMessage?.contains("Bluetooth") ?? false {
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                            }) {
+                                Text("Settings")
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(4)
+                            }
+                        }
+                        .padding()
+                        .background(Color.yellow.opacity(0.2))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                        .padding(.top)
+                    }
+                    
                     Spacer()
                     
                     scanButton
@@ -22,27 +63,24 @@ struct DeviceListView: View {
             }
             .navigationTitle("Devices")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: viewModel.sortByName) {
-                            Label("Sort by Name", systemImage: "textformat.size")
-                        }
-                        
-                        Button(action: viewModel.sortBySignalStrength) {
-                            Label("Sort by Signal", systemImage: "antenna.radiowaves.left.and.right")
-                        }
-                        
-                        Button(action: viewModel.sortByLastSeen) {
-                            Label("Sort by Last Seen", systemImage: "clock")
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    sortButton
                 }
             }
-            .onAppear {
-                viewModel.injectDeviceManager(deviceManager)
-            }
+        }
+        .sheet(isPresented: $showSortOptions) {
+            sortOptionsView
+        }
+        .onAppear {
+            viewModel.injectDeviceManager(deviceManager)
+            // Uygulamayı açtığımızda Bluetooth durumunu hemen kontrol edelim
+            deviceManager.checkAndUpdateBluetoothState()
+            // Debug amaçlı
+            print("DeviceListView appeared - Bluetooth enabled: \(deviceManager.isBluetoothEnabled)")
+        }
+        .onReceive(timer) { _ in
+            // Timer ile her 1 saniyede bir görünümü güncelleyerek mesafelerin sürekli yenilenmesini sağlayalım
+            updateCounter += 1
         }
     }
     
@@ -76,7 +114,7 @@ struct DeviceListView: View {
                     .fill(Color.blue)
                     .frame(width: 80, height: 80)
                     .overlay(
-                        Image(systemName: "bluetooth")
+                        Image(systemName: deviceManager.isBluetoothEnabled ? "bluetooth" : "bluetooth.slash")
                             .font(.system(size: 30, weight: .bold))
                             .foregroundColor(.white)
                     )
@@ -84,36 +122,43 @@ struct DeviceListView: View {
             }
             .padding(.bottom, 20)
             
-            Text(viewModel.isScanning ? "Scanning for Devices..." : "No Devices Found")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text(viewModel.isScanning ? 
-                "Looking for nearby Bluetooth devices" : 
-                "Start scanning to find nearby devices")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-                .padding(.bottom, 10)
-            
-            if !viewModel.isScanning {
-                Button(action: {
-                    viewModel.startScanning()
-                }) {
-                    HStack {
-                        Image(systemName: "antenna.radiowaves.left.and.right")
-                        Text("Start Scan")
+            if !deviceManager.isBluetoothEnabled {
+                Text("Bluetooth is Disabled")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text("Please enable Bluetooth in your device settings")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
+                
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
                     }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .cornerRadius(25)
-                    .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
-                .padding(.top, 10)
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 12)
+                .background(Color.blue)
+                .cornerRadius(25)
+                .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
+            } else {
+                Text(viewModel.isScanning ? "Scanning for Devices..." : "No Devices Found")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text(viewModel.isScanning ? 
+                    "Looking for nearby Bluetooth devices" : 
+                    "Start scanning to find nearby devices")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 10)
             }
         }
     }
@@ -200,12 +245,43 @@ struct DeviceListView: View {
             )
             .padding(.horizontal, 30)
         }
-        .padding(.bottom, 20)
+    }
+    
+    private var sortButton: some View {
+        Menu {
+            Button(action: viewModel.sortByName) {
+                Label("Sort by Name", systemImage: "textformat.size")
+            }
+            
+            Button(action: viewModel.sortBySignalStrength) {
+                Label("Sort by Signal", systemImage: "antenna.radiowaves.left.and.right")
+            }
+            
+            Button(action: viewModel.sortByLastSeen) {
+                Label("Sort by Last Seen", systemImage: "clock")
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+        }
+    }
+    
+    private var sortOptionsView: some View {
+        // Implementation of sortOptionsView
+        Text("Sort Options View")
+    }
+    
+    // MARK: - Helper Functions
+    private func startScanning() {
+        viewModel.startScanning()
     }
 }
 
 struct DeviceRowView: View {
     let device: Device
+    @EnvironmentObject private var deviceManager: DeviceManager
+    
+    // Mesafeyi doğru hesaplamak için her yenilemede değişen state
+    @State private var distanceValue: Double = 0
     
     var body: some View {
         HStack(spacing: 16) {
@@ -283,6 +359,14 @@ struct DeviceRowView: View {
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+        .onAppear {
+            // İlk gösterimde mesafeyi hesapla
+            updateDistance()
+        }
+        .onChange(of: device.rssi) { oldValue, newValue in
+            // RSSI değiştiğinde mesafeyi güncelle
+            updateDistance()
+        }
     }
     
     // MARK: - UI Components
@@ -443,20 +527,26 @@ struct DeviceRowView: View {
     private func formatDistance(for device: Device) -> String {
         guard let rssi = device.rssi else { return "Unknown" }
         
-        // Using a simple path loss model to estimate distance
-        let txPower = -59 // Calibrated at 1 meter
-        let n = 2.5 // Path loss exponent (environment dependent)
+        // DeviceManager'ın hesaplama fonksiyonunu kullan
+        let distance = deviceManager.calculateDistance(rssi: rssi)
         
-        // Calculate approximate distance in meters
-        let distance = pow(10, (Double(txPower - rssi) / (10 * n)))
-        
-        if distance < 1 {
+        if distance < 0 {
+            return "Unknown"
+        } else if distance < 1 {
             return String(format: "%.1f m away", distance)
         } else if distance < 10 {
             return String(format: "%.1f m away", distance)
         } else {
             return "\(Int(distance)) m away"
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func updateDistance() {
+        guard let rssi = device.rssi else { return }
+        // DeviceManager'ın hesaplama fonksiyonunu kullan
+        distanceValue = deviceManager.calculateDistance(rssi: rssi)
     }
 }
 

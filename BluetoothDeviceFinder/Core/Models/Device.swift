@@ -163,45 +163,84 @@ class Device: Identifiable, ObservableObject, Codable {
         self.lastSeen = Date()
         self.advertisementData = advertisementData
         
-        // Detect device type based on advertisement data or peripheral properties
-        detectDeviceType(advertisementData: advertisementData)
+        // Her zaman cihaz türünü tekrar tespit et ve güncelle
+        let updatedType = detectDeviceType(advertisementData: advertisementData)
+        if updatedType != .unknown {
+            self.type = updatedType
+        }
     }
     
     func updateLocation(_ newLocation: CLLocation) {
         self.location = newLocation
     }
     
-    private func detectDeviceType(advertisementData: [String: Any]) {
-        // Simple logic to infer device type - in real app this would be more sophisticated
-        if let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] {
-            // Headphones and audio devices often advertise the A2DP service
-            if services.contains(where: { $0.uuidString.contains("110A") }) {
-                self.type = .headphones
+    private func detectDeviceType(advertisementData: [String: Any]) -> DeviceType {
+        // Servis UUIDlerine bak
+        if let serviceUUIDs = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] {
+            // Headphones ve Audio cihazlar için A2DP servisi
+            if serviceUUIDs.contains(where: { $0.uuidString.contains("110A") || $0.uuidString.contains("110B") }) {
+                return .headphones
             }
-            // Other service detection logic would go here
+            
+            // Apple Watch ve akıllı saatler
+            if serviceUUIDs.contains(where: { $0.uuidString.contains("1801") || $0.uuidString.contains("1805") }) {
+                return .watch
+            }
+            
+            // Klavye ve Mouse (HID Servisi)
+            if serviceUUIDs.contains(where: { $0.uuidString.contains("1812") }) {
+                // İsme bakarak klavye mi fare mi belirleyelim
+                let lowercaseName = name.lowercased()
+                if lowercaseName.contains("mouse") {
+                    return .mouse
+                } else {
+                    return .keyboard
+                }
+            }
         }
         
         // Determine device type from name if we couldn't from services
         let lowercaseName = name.lowercased()
-        if lowercaseName.contains("headphone") || lowercaseName.contains("airpod") || lowercaseName.contains("earbud") {
-            self.type = .headphones
+        if lowercaseName.contains("headphone") || lowercaseName.contains("airpod") || lowercaseName.contains("earbud") || lowercaseName.contains("headset") {
+            return .headphones
         } else if lowercaseName.contains("speaker") || lowercaseName.contains("sound") || lowercaseName.contains("audio") {
-            self.type = .speaker
+            return .speaker
         } else if lowercaseName.contains("watch") {
-            self.type = .watch
+            return .watch
         } else if lowercaseName.contains("keyboard") {
-            self.type = .keyboard
+            return .keyboard
         } else if lowercaseName.contains("mouse") {
-            self.type = .mouse
+            return .mouse
         } else if lowercaseName.contains("phone") || lowercaseName.contains("iphone") {
-            self.type = .phone
+            return .phone
         } else if lowercaseName.contains("ipad") || lowercaseName.contains("tablet") {
-            self.type = .tablet
+            return .tablet
         } else if lowercaseName.contains("mac") || lowercaseName.contains("book") || lowercaseName.contains("laptop") {
-            self.type = .laptop
+            return .laptop
         } else if lowercaseName.contains("computer") {
-            self.type = .computer
+            return .computer
         }
+        
+        // Apple ürünleri için üretici verisine bak
+        if let manufacturerData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data, 
+           manufacturerData.count >= 2 {
+            // Apple'ın üretici ID'si 0x004C'dir
+            let manufacturerID = UInt16(manufacturerData[0]) + (UInt16(manufacturerData[1]) << 8)
+            if manufacturerID == 0x004C {
+                // Bu bir Apple ürünü, ama hangisi olduğunu bilemiyoruz
+                // AirPods genellikle özel bir hizmet sunar, zaten yukarıda kontrol ettik
+                if lowercaseName.contains("airpod") {
+                    return .headphones
+                } else if lowercaseName.contains("watch") {
+                    return .watch
+                } else {
+                    // Varsayılan olarak telefon diyelim
+                    return .phone
+                }
+            }
+        }
+        
+        return .unknown
     }
 }
 

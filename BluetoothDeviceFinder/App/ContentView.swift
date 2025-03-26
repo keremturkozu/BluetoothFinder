@@ -1,20 +1,27 @@
 import SwiftUI
 
 enum Tab: Int {
+    case home
     case devices
     case map
     case radar
     case saved
-    case settings
 }
 
 struct ContentView: View {
     @StateObject private var deviceManager = DeviceManager()
-    @State private var selectedTab: Tab = .devices
+    @State private var selectedTab: Tab = .home
     @AppStorage("darkMode") private var darkMode = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
+            // Home Dashboard Tab
+            DashboardView()
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+                .tag(Tab.home)
+                
             // Devices List Tab
             DeviceListView()
                 .tabItem {
@@ -42,13 +49,6 @@ struct ContentView: View {
                     Label("Saved", systemImage: "star")
                 }
                 .tag(Tab.saved)
-            
-            // Settings Tab
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
-                }
-                .tag(Tab.settings)
         }
         .environmentObject(deviceManager)
         .onAppear {
@@ -57,6 +57,9 @@ struct ContentView: View {
             
             // Apply the dark mode setting when app starts
             setAppAppearance(darkMode: darkMode)
+            
+            // Tab geçişleri için NotificationCenter observer'ı ekle
+            setupTabChangeObserver()
         }
         .onChange(of: darkMode) { newValue in
             setAppAppearance(darkMode: newValue)
@@ -72,6 +75,18 @@ struct ContentView: View {
         
         windows?.forEach { window in
             window.overrideUserInterfaceStyle = darkMode ? .dark : .light
+        }
+    }
+    
+    // MARK: - Tab Change Observer
+    
+    private func setupTabChangeObserver() {
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("SelectTab"), object: nil, queue: .main) { notification in
+            if let userInfo = notification.userInfo as? [String: Int], 
+               let tabIndex = userInfo["selectedTab"],
+               let tab = Tab(rawValue: tabIndex) {
+                selectedTab = tab
+            }
         }
     }
 }

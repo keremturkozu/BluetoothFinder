@@ -18,7 +18,10 @@ class DeviceListViewModel: ObservableObject {
     private var sortMethod: SortMethod = .name
     
     // MARK: - Initialization
-    init() {}
+    init() {
+        // Her 1 saniyede bir cihaz listesini güncelle
+        setupPeriodicUpdates()
+    }
     
     // MARK: - Dependency Injection
     func injectDeviceManager(_ deviceManager: DeviceManager) {
@@ -179,6 +182,25 @@ class DeviceListViewModel: ObservableObject {
                     return device1.name < device2.name
                 }
             }
+        }
+    }
+    
+    private func setupPeriodicUpdates() {
+        // 1 saniyede bir cihaz mesafe ve sinyal güçlerini yenile
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.isScanning else { return }
+            
+            // RSSI ve mesafe değerlerini yenile
+            self.refreshRSSIValues()
+        }
+    }
+    
+    private func refreshRSSIValues() {
+        // Cihazların RSSI değerlerini güncelleyerek mesafe hesaplamalarını yeniler
+        DispatchQueue.main.async {
+            // Sadece görünüm değişikliği olarak algılanması için publisher'a yeni değer göndermek yeterli
+            // objectWillChange, view'ın refresh olmasını sağlar
+            self.objectWillChange.send()
         }
     }
 }

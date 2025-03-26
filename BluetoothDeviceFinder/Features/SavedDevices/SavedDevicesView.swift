@@ -6,6 +6,7 @@ struct SavedDevicesView: View {
     @StateObject private var viewModel = SavedDevicesViewModel()
     @State private var showingDeleteAlert = false
     @State private var deviceToDelete: Device?
+    @State private var showSettingsSheet = false
     
     var body: some View {
         NavigationView {
@@ -19,6 +20,15 @@ struct SavedDevicesView: View {
                 }
             }
             .navigationTitle("Saved Devices")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettingsSheet = true
+                    } label: {
+                        Image(systemName: "gear")
+                    }
+                }
+            }
             .alert("Delete Device", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
@@ -35,6 +45,9 @@ struct SavedDevicesView: View {
             }
             .sheet(item: $viewModel.selectedDevice) { device in
                 DeviceDetailView(device: device)
+            }
+            .sheet(isPresented: $showSettingsSheet) {
+                SettingsView()
             }
             .onAppear {
                 viewModel.injectDeviceManager(deviceManager)

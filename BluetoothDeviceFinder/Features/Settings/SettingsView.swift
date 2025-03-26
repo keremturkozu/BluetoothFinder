@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var deviceManager: DeviceManager
+    @Environment(\.dismiss) private var dismiss
     @State private var showLocationPermissionAlert = false
     @State private var showBluetoothPermissionAlert = false
     @State private var showNotificationPermissionAlert = false
@@ -100,6 +101,14 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
             .alert("Location Permission Required", isPresented: $showLocationPermissionAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Open Settings") { openSettings() }

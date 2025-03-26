@@ -2,12 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSBluetoothServices</key>
-	<array>
-		<string>NSLocationWhenInUseUsageDescription</string>
-		<string>NSBluetoothPeripheralUsageDescription</string>
-		<string>NSBluetoothAlwaysUsageDescription</string>
-	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app uses Bluetooth to find and connect to nearby devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app uses Bluetooth to find and connect to nearby devices.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to save the last known location of your devices.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Your location is used to save the last known location of your devices.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
