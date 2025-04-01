@@ -13,15 +13,13 @@ struct DeviceMapView: View {
             Map(coordinateRegion: $mapRegion,
                 showsUserLocation: true,
                 userTrackingMode: $userTrackingMode,
-                annotationItems: viewModel.mapAnnotations) { annotation in
+                annotationItems: viewModel.filteredAnnotations) { annotation in
                 MapAnnotation(coordinate: annotation.coordinate) {
                     VStack {
                         deviceAnnotationView(for: annotation)
                     }
                     .onTapGesture {
-                        if let device = annotation.device {
-                            viewModel.selectDevice(device)
-                        }
+                        viewModel.selectDevice(annotation.device)
                     }
                 }
             }
@@ -45,6 +43,11 @@ struct DeviceMapView: View {
                         mapControlButton(systemName: "minus.magnifyingglass") {
                             zoomMap(zoomIn: false)
                         }
+                        
+                        // Filtreleme kontrolü
+                        mapControlButton(systemName: viewModel.hideUnnamedDevices ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle") {
+                            viewModel.hideUnnamedDevices.toggle()
+                        }
                     }
                     .padding(8)
                     .background(Color(.systemBackground).opacity(0.8))
@@ -66,6 +69,7 @@ struct DeviceMapView: View {
         }
         .onAppear {
             initializeMap()
+            viewModel.injectDeviceManager(deviceManager)
         }
         .onChange(of: deviceManager.devices) { _ in
             viewModel.updateAnnotations(from: deviceManager.devices)
@@ -88,19 +92,30 @@ struct DeviceMapView: View {
     
     private var deviceInfoOverlay: some View {
         VStack(spacing: 0) {
-            Text("Device Locations")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(Color.blue)
-                .foregroundColor(.white)
+            // Başlık kısmı
+            HStack {
+                Text("Device Locations")
+                    .font(.headline)
+                
+                Spacer()
+                
+                // Filtre durum göstergesi
+                if viewModel.hideUnnamedDevices && viewModel.mapAnnotations.count > viewModel.filteredAnnotations.count {
+                    Text("\(viewModel.filteredAnnotations.count) of \(viewModel.mapAnnotations.count)")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(Color.blue)
+            .foregroundColor(.white)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(viewModel.mapAnnotations) { annotation in
-                        if let device = annotation.device {
-                            deviceStatusButton(device: device)
-                        }
+                    ForEach(viewModel.filteredAnnotations) { annotation in
+                        deviceStatusButton(device: annotation.device)
                     }
                 }
                 .padding()
@@ -147,16 +162,9 @@ struct DeviceMapView: View {
                 .frame(width: 44, height: 44)
                 .shadow(radius: 3)
             
-            if let device = annotation.device {
-                Image(systemName: deviceSystemImage(for: device))
-                    .font(.system(size: 20))
-                    .foregroundColor(deviceColor(for: device))
-            } else {
-                // Fallback for annotations without devices (shouldn't happen)
-                Image(systemName: "questionmark")
-                    .font(.system(size: 20))
-                    .foregroundColor(.gray)
-            }
+            Image(systemName: deviceSystemImage(for: annotation.device))
+                .font(.system(size: 20))
+                .foregroundColor(deviceColor(for: annotation.device))
         }
     }
     
@@ -186,9 +194,11 @@ struct DeviceMapView: View {
     }
     
     private func deviceColor(for device: Device) -> Color {
-        if let rssi = device.rssi, rssi > -60 {
+        guard let rssi = device.rssi else { return .red }
+        
+        if rssi > -60 {
             return .green
-        } else if let rssi = device.rssi, rssi > -80 {
+        } else if rssi > -80 {
             return .orange
         } else {
             return .red
@@ -283,7 +293,7 @@ struct DeviceMapView: View {
     }
     
     private func centerMap(on device: Device) {
-        guard let location = device.location else { return }
+        guard let location = device.lastLocation else { return }
         
         let coordinate = CLLocationCoordinate2D(
             latitude: location.coordinate.latitude,

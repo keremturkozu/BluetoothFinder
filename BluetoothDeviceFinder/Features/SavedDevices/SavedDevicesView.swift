@@ -169,7 +169,7 @@ struct SavedDeviceRow: View {
                 }
                 
                 // Location info
-                if let location = device.location {
+                if let location = device.lastLocation {
                     Text(formatLocationDistance(location))
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -178,16 +178,14 @@ struct SavedDeviceRow: View {
             
             Spacer()
             
-            // Signal strength indicator if available
-            if let rssi = device.rssi {
-                VStack(spacing: 2) {
-                    Image(systemName: signalIcon(for: rssi))
-                        .foregroundColor(signalColor(for: rssi))
-                    
-                    Text("\(rssi) dBm")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+            // Signal strength indicator
+            VStack(spacing: 2) {
+                Image(systemName: signalIcon(for: device.rssi))
+                    .foregroundColor(signalColor(for: device.rssi))
+                
+                Text("\(device.rssi ?? 0) dBm")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(.vertical, 8)
@@ -238,7 +236,9 @@ struct SavedDeviceRow: View {
         }
     }
     
-    private func signalIcon(for rssi: Int) -> String {
+    private func signalIcon(for rssi: Int?) -> String {
+        guard let rssi = rssi else { return "wifi.exclamationmark" }
+        
         if rssi > -50 {
             return "wifi.3"
         } else if rssi > -65 {
@@ -250,7 +250,9 @@ struct SavedDeviceRow: View {
         }
     }
     
-    private func signalColor(for rssi: Int) -> Color {
+    private func signalColor(for rssi: Int?) -> Color {
+        guard let rssi = rssi else { return .red }
+        
         if rssi > -50 {
             return .green
         } else if rssi > -65 {
@@ -262,20 +264,26 @@ struct SavedDeviceRow: View {
         }
     }
     
-    private func timeAgo(from date: Date) -> String {
+    private func timeAgo(from date: Date?) -> String {
+        guard let date = date else { return "Unknown" }
+        
         let calendar = Calendar.current
         let now = Date()
         let components = calendar.dateComponents([.minute, .hour, .day], from: date, to: now)
         
-        if let day = components.day, day > 0 {
-            return day == 1 ? "Yesterday" : "\(day)d ago"
-        } else if let hour = components.hour, hour > 0 {
-            return "\(hour)h ago"
-        } else if let minute = components.minute, minute > 0 {
-            return "\(minute)m ago"
-        } else {
-            return "Just now"
+        if let day = components.day, day >= 1 {
+            return day == 1 ? "Yesterday" : "\(day) days ago"
         }
+        
+        if let hour = components.hour, hour >= 1 {
+            return hour == 1 ? "1 hour ago" : "\(hour) hours ago"
+        }
+        
+        if let minute = components.minute, minute >= 1 {
+            return minute == 1 ? "1 minute ago" : "\(minute) minutes ago"
+        }
+        
+        return "Just now"
     }
     
     private func formatLocationDistance(_ location: CLLocation) -> String {

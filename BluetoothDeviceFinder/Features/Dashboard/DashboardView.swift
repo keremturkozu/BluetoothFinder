@@ -390,10 +390,11 @@ struct DashboardView: View {
     }
     
     // Convert RSSI value to bar height
-    private func rssiToHeight(_ rssi: Int) -> CGFloat {
+    private func rssiToHeight(_ rssi: Int?) -> CGFloat {
         // RSSI typically ranges from -30 (very strong) to -90 (very weak)
         // Convert to a height between 25 and 65
-        let normalized = min(max(-90, rssi), -30) + 90 // Now 0 to 60
+        let validRssi = rssi ?? -90
+        let normalized = min(max(-90, validRssi), -30) + 90 // Now 0 to 60
         return CGFloat(normalized) + 25 // Now 25 to 85
     }
     
@@ -437,16 +438,9 @@ struct NearbyDeviceRow: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                             
-                            let distance = deviceManager.calculateDistance(rssi: rssi)
-                            if distance < 1 {
-                                Text(String(format: "%.1f m", distance))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            } else {
-                                Text(String(format: "%.0f m", distance))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text(deviceManager.formatDistance(deviceManager.calculateDistance(rssi: rssi)))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                     
@@ -558,7 +552,9 @@ struct NearbyDeviceRow: View {
         }
     }
     
-    private func signalBars(for rssi: Int) -> Int {
+    private func signalBars(for rssi: Int?) -> Int {
+        guard let rssi = rssi else { return 1 }
+        
         if rssi > -50 {
             return 4
         } else if rssi > -65 {
@@ -570,7 +566,9 @@ struct NearbyDeviceRow: View {
         }
     }
     
-    private func signalColor(for rssi: Int) -> Color {
+    private func signalColor(for rssi: Int?) -> Color {
+        guard let rssi = rssi else { return .red }
+        
         if rssi > -50 {
             return .green
         } else if rssi > -65 {

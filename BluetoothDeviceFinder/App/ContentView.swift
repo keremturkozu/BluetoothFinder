@@ -9,9 +9,12 @@ enum Tab: Int {
 }
 
 struct ContentView: View {
-    @StateObject private var deviceManager = DeviceManager()
+    @EnvironmentObject private var deviceManager: DeviceManager
     @State private var selectedTab: Tab = .home
     @AppStorage("darkMode") private var darkMode = false
+    
+    // RadarViewModel'i bir kez oluştur ve paylaş
+    @StateObject private var radarViewModel = RadarViewModel()
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -36,8 +39,8 @@ struct ContentView: View {
                 }
                 .tag(Tab.map)
             
-            // Radar Tab
-            RadarView(viewModel: RadarViewModel())
+            // Radar Tab - Tek bir viewModel kullan
+            RadarView(viewModel: radarViewModel)
                 .tabItem {
                     Label("Radar", systemImage: "scope")
                 }
@@ -50,7 +53,6 @@ struct ContentView: View {
                 }
                 .tag(Tab.saved)
         }
-        .environmentObject(deviceManager)
         .onAppear {
             // Request location permission when app starts
             deviceManager.locationService.requestAuthorization()
@@ -60,6 +62,9 @@ struct ContentView: View {
             
             // Tab geçişleri için NotificationCenter observer'ı ekle
             setupTabChangeObserver()
+            
+            // RadarViewModel'e DeviceManager'ı enjekte et
+            radarViewModel.injectDeviceManager(deviceManager)
         }
         .onChange(of: darkMode) { newValue in
             setAppAppearance(darkMode: newValue)

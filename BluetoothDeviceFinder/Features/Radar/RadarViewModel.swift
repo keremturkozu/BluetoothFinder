@@ -12,6 +12,20 @@ class RadarViewModel: ObservableObject {
     @Published var closestDevice: Device?
     @Published var radarAngle: Double = 0
     @Published var isAnimating: Bool = false
+    @Published var hideUnnamedDevices: Bool = true
+    
+    // Computed property for filtered devices
+    var filteredDevices: [Device] {
+        guard let deviceManager = deviceManager else { return [] }
+        
+        let allDevices = deviceManager.devices
+        
+        if hideUnnamedDevices {
+            return allDevices.filter { !isGenericName($0.name) }
+        } else {
+            return allDevices
+        }
+    }
     
     // MARK: - Private Properties
     private var deviceManager: DeviceManager?
@@ -20,11 +34,22 @@ class RadarViewModel: ObservableObject {
     private let animationSpeed: Double = 0.05 // Radar rotation speed
     
     // MARK: - Initialization
-    init() {}
+    init() {
+        // Radar animasyonunu başlat
+        startRadarAnimation()
+    }
     
     // MARK: - Dependency Injection
     func injectDeviceManager(_ deviceManager: DeviceManager) {
         self.deviceManager = deviceManager
+        
+        // deviceManager'dan alınan cihazları doğrudan devices property'ye ata
+        self.devices = deviceManager.devices
+        
+        // deviceManager'dan tarama durumunu aktar
+        self.isScanning = deviceManager.isScanning
+        
+        // Backend bağlantılarını kur
         setupBindings()
     }
     
@@ -65,15 +90,15 @@ class RadarViewModel: ObservableObject {
         }
         
         // Filter devices with location and sort by distance
-        let devicesWithLocation = devices.filter { $0.location != nil }
+        let devicesWithLocation = devices.filter { $0.lastLocation != nil }
         
         if !devicesWithLocation.isEmpty {
             closestDevice = devicesWithLocation.min(by: { 
-                $0.location!.distance(from: currentLocation) < $1.location!.distance(from: currentLocation)
+                $0.lastLocation!.distance(from: currentLocation) < $1.lastLocation!.distance(from: currentLocation)
             })
         } else {
             // If no devices have location, sort by signal strength
-            closestDevice = devices.max(by: { ($0.rssi ?? -100) < ($1.rssi ?? -100) })
+            closestDevice = devices.max(by: { ($0.rssi!) < ($1.rssi!) })
         }
     }
     
@@ -135,7 +160,7 @@ class RadarViewModel: ObservableObject {
     
     // Calculate distance description based on RSSI or actual location distance
     func distanceDescription(for device: Device) -> String {
-        if let location = device.location, let userLocation = deviceManager?.locationService.currentLocation {
+        if let location = device.lastLocation, let userLocation = deviceManager?.locationService.currentLocation {
             let distance = location.distance(from: userLocation)
             
             if distance < 1 {
@@ -151,8 +176,12 @@ class RadarViewModel: ObservableObject {
             } else {
                 return String(format: "%.1f km away", distance / 1000)
             }
-        } else if let rssi = device.rssi {
+        } else {
             // Calculate approximate distance using RSSI
+            guard let rssi = device.rssi else {
+                return "Unknown"
+            }
+            
             if rssi > -40 {
                 return "Very close"
             } else if rssi > -60 {
@@ -165,57 +194,48 @@ class RadarViewModel: ObservableObject {
                 return "Very far"
             }
         }
-        
-        return "Unknown distance"
     }
     
     // Calculate angle for device based on its position relative to user (simplified)
     func angleForDevice(_ device: Device) -> Double {
-        guard let location = device.location, 
-              let userLocation = deviceManager?.locationService.currentLocation else {
-            // If no location data, use device ID to give a consistent but random angle
-            // This will distribute devices around the entire radar circle
-            let deviceIdString = device.id.uuidString
-            let hashValue = abs(deviceIdString.hash)
-            return Double(hashValue % 360)
+        // Cihazın görece açısını belirleyerek, radar üzerinde düzgün dağılımını sağlayalım
+        // Gerçek konum verisi yoksa, ID tabanlı sabit bir açı oluşturalım
+        let deviceIdString = device.id.uuidString
+        let hashValue = abs(deviceIdString.hash)
+        
+        // Temel açı değeri (0-359 derece arasında)
+        let baseAngle = Double(hashValue % 360)
+        
+        // RSSI değerine göre küçük varyasyon ekleyelim
+        if let rssi = device.rssi {
+            // rssi -30 ile -100 arasında değişebilir
+            let rssiOffset = Double(min(-30, max(-100, rssi)) + 100) / 10.0
+            return baseAngle + rssiOffset
         }
         
-        // Calculate actual angle based on GPS coordinates
-        let deltaLong = location.coordinate.longitude - userLocation.coordinate.longitude
-        let deltaLat = location.coordinate.latitude - userLocation.coordinate.latitude
-        
-        // Calculate angle in radians
-        let angleRadians = atan2(deltaLong, deltaLat)
-        
-        // Convert to degrees and ensure positive values (0-360)
-        var angleDegrees = angleRadians * 180 / .pi
-        
-        // Adjust for SwiftUI coordinate system
-        while angleDegrees < 0 {
-            angleDegrees += 360
-        }
-        while angleDegrees >= 360 {
-            angleDegrees -= 360
-        }
-        
-        return angleDegrees
+        return baseAngle
     }
     
     // Calculate normalized distance (0-1) for radar display
     func normalizedDistance(for device: Device) -> Double {
-        if let location = device.location, let userLocation = deviceManager?.locationService.currentLocation {
-            let distance = location.distance(from: userLocation)
-            // Normalize to 0-1 with max effective range of 1km
-            return min(0.9, max(0.1, distance / 1000))
-        } else if let rssi = device.rssi {
-            // Convert RSSI to a normalized distance
-            // -40 is very close (0.1), -90 is far (0.9)
-            let normalized = (abs(Double(rssi)) - 40) / 50
-            return min(0.9, max(0.1, normalized))
+        // RSSI değerine göre normalize edilmiş mesafe (0.2 ile 0.9 arasında)
+        if let rssi = device.rssi {
+            // RSSI'ı -30 ile -100 arasında sınırlıyoruz
+            let normalizedRSSI = min(-30, max(-100, rssi))
+            
+            // Mesafe hesaplama, -30 en yakın (0.2), -100 en uzak (0.9)
+            let distance = 0.2 + (abs(Double(normalizedRSSI) + 30) / 70.0) * 0.7
+            
+            // İsme göre küçük bir ofset ekleyelim, böylece aynı RSSI'a sahip cihazlar üst üste gelmesin
+            let nameLength = device.name.count
+            let nameOffset = Double(nameLength % 10) / 100.0
+            
+            return distance + nameOffset
         }
         
-        // Default value when no data available - place in middle range
-        return Double.random(in: 0.3...0.7)
+        // Konum verisi yoksa, ID'ye göre tutarlı ama rastgele bir mesafe oluşturalım
+        let hashVal = abs(device.id.uuidString.hash)
+        return 0.3 + (Double(hashVal % 60) / 100.0)
     }
     
     // Calculate approximate distance based on RSSI
@@ -226,5 +246,60 @@ class RadarViewModel: ObservableObject {
         let n = 2.5 // Path loss exponent (environment dependent)
         
         return pow(10, (Double(txPower - rssi) / (10 * n)))
+    }
+    
+    // MARK: - Helper Methods
+    // Generic cihaz isimlerini tanıma
+    private func isGenericName(_ name: String) -> Bool {
+        // Boş isimler veya çok kısa isimler
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count < 2 {
+            return true
+        }
+        
+        // Common generic device names patterns
+        let genericPatterns = [
+            "^LE-",
+            "^BT",
+            "^Unknown",
+            "^Unnamed",
+            "^[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}$",
+            "^[0-9]{2,}$", // Sadece rakamlardan oluşan isimler
+            "[0-9A-F]{4,}", // MAC adresi bölümleri gibi görünen kısımlar
+            "^[0-9A-Fa-f]{4,}$" // Hex kodlarından oluşan isimler
+        ]
+        
+        // Check if the name matches any generic pattern
+        for pattern in genericPatterns {
+            if name.range(of: pattern, options: .regularExpression) != nil {
+                return true
+            }
+        }
+        
+        // Manufacturer-specific generic names
+        let genericNames = [
+            "Bluetooth",
+            "Headset",
+            "Speaker",
+            "Mouse",
+            "Keyboard",
+            "Hands-Free",
+            "HC-05", 
+            "HC-06", 
+            "ESP32", 
+            "ESP8266",
+            "JBL",
+            "Mi",
+            "EDIFIER",
+            "3A13",
+            "BLE"
+        ]
+        
+        for genericName in genericNames {
+            if name.contains(genericName) && name.count < 15 {
+                return true
+            }
+        }
+        
+        return false
     }
 } 

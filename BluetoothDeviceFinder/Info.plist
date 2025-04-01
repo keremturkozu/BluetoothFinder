@@ -7,9 +7,11 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to find and connect to nearby devices.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Your location is used to save the last known location of your devices.</string>
+	<string>This app uses your location to remember where you last saw your devices.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app uses your location to remember where you last saw your devices even when the app is not active.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Your location is used to save the last known location of your devices.</string>
+	<string>This app uses your location to remember where you last saw your devices.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

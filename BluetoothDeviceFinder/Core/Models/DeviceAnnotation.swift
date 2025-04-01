@@ -1,16 +1,35 @@
 import Foundation
 import MapKit
 
-class DeviceAnnotation: Identifiable {
-    let id: UUID
-    let device: Device?
+class DeviceAnnotation: NSObject, MKAnnotation, Identifiable {
+    let device: Device
+    var id: UUID { device.id }
     
     var coordinate: CLLocationCoordinate2D {
-        return device?.location?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)
+        if let location = device.lastLocation {
+            return location.coordinate
+        }
+        return CLLocationCoordinate2D(latitude: 0, longitude: 0)
     }
     
-    init(device: Device?) {
+    var title: String? {
+        return device.name
+    }
+    
+    var subtitle: String? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .none
+        dateFormatter.timeStyle = .short
+        
+        if let lastSeen = device.lastSeen {
+            return "Last seen: \(dateFormatter.string(from: lastSeen))"
+        } else {
+            return "Unknown last seen time"
+        }
+    }
+    
+    init(device: Device) {
         self.device = device
-        self.id = device?.id ?? UUID()
+        super.init()
     }
 } 
